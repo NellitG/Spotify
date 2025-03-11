@@ -11,7 +11,7 @@ class SongSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Song
-        fields = ["id", "title", "artist", "audio_url", "duration", "uploaded_at"]
+        fields = ["id", "title", "artist", "youtube_url", "duration", "uploaded_at"]
 
 class PlaylistSerializer(serializers.ModelSerializer):
     user = serializers.ReadOnlyField(source="user.username")
