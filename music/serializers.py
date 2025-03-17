@@ -7,12 +7,12 @@ class ArtistSerializer(serializers.ModelSerializer):#serializes model instance
         fields = "__all__"
 
 class SongSerializer(serializers.ModelSerializer):
-    artist = ArtistSerializer()
-    youtube_url =serializers.CharField()
+    artist = serializers.SlugRelatedField(slug_field="name", queryset=Artist.objects.all())
 
     class Meta:
         model = Song
-        fields = ["id", "title", "artist", "youtube_url", "duration", "uploaded_at"]
+        fields = "__all__"
+
 
     def validate_youtube_url(self, value):
         if not value.startswith("https://www.youtube.com/watch"):
