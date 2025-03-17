@@ -1,10 +1,25 @@
 from django.db import models
 from django.contrib.auth.models import User
+from django.core.validators import URLValidator
+from PIL import Image
+import os
 
 class Artist(models.Model):
     name = models.CharField(max_length=255, unique=True)  # Ensure artist names are unique
     bio = models.TextField(blank=True)  # Store artist biography
-    image = models.ImageField(upload_to='artists/', blank=True, default='')  # Allow blank images
+    image = models.ImageField(upload_to='artists/', null=True, blank = True)  # Allow blank images
+
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+        if self.image:
+            img_path = self.image.path
+            if img_path.lower().endswith(".jfif"):
+                img = Image.open(img_path)
+                new_path = img_path.rsplit(".", 1)[0] + ".jpg"  # Change extension
+                img.convert("RGB").save(new_path, "JPEG")  # Convert to JPEG
+                os.remove(img_path)  # Delete the original .jfif file
+                self.image.name = self.image.name.rsplit(".", 1)[0] + ".jpg"  # Update DB
+                super().save(update_fields=["image"])  # Save the model
 
     def __str__(self):
         return self.name
@@ -14,16 +29,15 @@ class Artist(models.Model):
 
 class Song(models.Model):
     title = models.CharField(max_length=255)
-    artist = models.ForeignKey(Artist, on_delete=models.CASCADE)  # When artist deleted, songs also deleted
-    youtube_url = models.URLField(max_length=255, null=True, blank=True)  # Use URLField for validation
+    artist = models.ForeignKey("Artist", on_delete=models.CASCADE)
+    youtube_url = models.CharField(
+        max_length=255, null=True, blank=True, validators=[URLValidator()]
+    )
     duration = models.IntegerField(help_text="Duration of song in seconds")
     uploaded_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return f"{self.title} by {self.artist.name}"
-
-    class Meta:
-        ordering = ['-uploaded_at']  # Show latest songs first
+        return self.title
 
 class Playlist(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)  # When user deleted, playlist deleted
