@@ -22,8 +22,16 @@ class PlaylistList(generics.ListCreateAPIView):
 
     def perform_create(self, serializer):
         song_data = serializer.validated_data
-        song_name = f"{song_data['title']} by {song_data['artist']}"
+
+    # Extract artist name 
+        artist_name = song_data.pop('artist')  
+
+    # Get or create the artist instance
+        artist, created = Artist.objects.get_or_create(name=artist_name)
+
+    # Construct song name for YouTube search
+        song_name = f"{song_data['title']} by {artist.name}"
         youtube_link = search_youtube(song_name)
 
-        if youtube_link:
-            serializer.save(youtube_url=youtube_link)
+    # Save song with correct artist instance
+        serializer.save(artist=artist, youtube_url=youtube_link)
