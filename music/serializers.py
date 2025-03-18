@@ -1,3 +1,5 @@
+#Serializers convert complex data into a simple format that can easily be shared across the network. They also validate the data before saving it to the database. In this file, we define serializers for the Artist, Song, and Playlist models.
+#Think of them as serializers
 import re
 from rest_framework import serializers
 from .models import Artist, Song, Playlist
