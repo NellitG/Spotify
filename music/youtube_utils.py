@@ -1,7 +1,7 @@
 from googleapiclient.discovery import build
 
 # Replace this with your actual API Key
-YOUTUBE_API_KEY = "Youtube_API_Key"
+YOUTUBE_API_KEY = ""
 
 def search_youtube(song_name):
     youtube = build("youtube", "v3", developerKey=YOUTUBE_API_KEY)
@@ -21,4 +21,4 @@ def search_youtube(song_name):
     return None
 
 # Example Usage
-print(search_youtube("shape of you by ed sheeran"))
+print(search_youtube(""))
