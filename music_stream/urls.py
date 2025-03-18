@@ -20,6 +20,13 @@ from django.http import HttpResponse
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from django.conf import settings
 from django.conf.urls.static import static
+from rest_framework.routers import DefaultRouter
+from music.views import ArtistViewSet, SongViewSet, PlaylistViewSet
+
+router = DefaultRouter()
+router.register(r"artists", ArtistViewSet, basename="artist")  # Register ArtistViewSet
+router.register(r"songs", SongViewSet, basename="song")  # Register SongViewSet
+router.register(r"playlists", PlaylistViewSet, basename="playlist")  # Register PlaylistViewSet
 
 # Simple homepage view
 def home(request):
@@ -28,6 +35,7 @@ def home(request):
 urlpatterns = [
     path("", home, name="home"),  # Default homepage
     path("admin/", admin.site.urls),
+    path("", include(router.urls)),  # Include router
     path("api/auth/token/", TokenObtainPairView.as_view(), name="token_obtain_pair"),
     path("api/auth/token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
     path("api/music/", include("music.urls")), 
