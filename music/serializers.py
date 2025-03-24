@@ -1,20 +1,31 @@
-#Serializers convert complex data into a simple format that can easily be shared across the network. They also validate the data before saving it to the database. In this file, we define serializers for the Artist, Song, and Playlist models.
-#Think of them as serializers
 import re
 from rest_framework import serializers
+from django.contrib.auth.models import User
 from .models import Artist, Song, Playlist
+
+class UserSerializer(serializers.ModelSerializer):
+    password = serializers.CharField(write_only=True)
+
+    class Meta:
+        model = User
+        fields = ['id', 'username', 'email', 'password']
+
+    def create(self, validated_data):
+        """Create a new user with a hashed password."""
+        return User.objects.create_user(**validated_data)
 
 class ArtistSerializer(serializers.ModelSerializer):
     class Meta:
         model = Artist
-        fields = ['id', 'name']  # Ensure 'name' is included
+        fields = ['id', 'name']
 
 class SongSerializer(serializers.ModelSerializer):
-    artist = ArtistSerializer(read_only=True)  # Serialize the artist object
+    artist = ArtistSerializer(read_only=True)  # Serialize artist object
+    artist_name = serializers.CharField(write_only=True)  # For input
 
     class Meta:
         model = Song
-        fields = ['id', 'title', 'artist', 'youtube_url']
+        fields = ['id', 'title', 'artist', 'artist_name', 'youtube_url']
 
     def validate_youtube_url(self, value):
         """Ensure the YouTube URL is valid."""
@@ -23,14 +34,14 @@ class SongSerializer(serializers.ModelSerializer):
         )
         if not youtube_pattern.match(value):
             raise serializers.ValidationError("Invalid YouTube URL")
-        return value  # Ensure return is inside the function
+        return value
 
     def create(self, validated_data):
         """Ensure artist exists before saving song."""
-        artist_name = validated_data.pop("artist", None)
+        artist_name = validated_data.pop("artist_name", None)
 
         if not artist_name:
-            raise serializers.ValidationError({"artist": "Artist name is required"})
+            raise serializers.ValidationError({"artist_name": "Artist name is required"})
 
         artist, _ = Artist.objects.get_or_create(name=artist_name)
         return Song.objects.create(artist=artist, **validated_data)
