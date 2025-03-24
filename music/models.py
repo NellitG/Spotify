@@ -3,6 +3,21 @@ from django.contrib.auth.models import User
 from django.core.validators import URLValidator
 from PIL import Image
 import os
+# from django.contrib.auth.models import AbstractUser
+
+class User(User):
+    ROLE_CHOICES = (
+        ('admin', 'Admin'),
+        ('artist', 'Artist'),
+        ('listener', 'Listener'),
+    )
+    role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='listener')
+
+    def is_admin(self):
+        return self.role == 'admin'
+    
+    def is_artist(self):
+        return self.role == 'artist'
 
 class Artist(models.Model):
     name = models.CharField(max_length=255, unique=True)  # Ensure artist names are unique
@@ -41,6 +56,7 @@ class Song(models.Model):
 
 class Playlist(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)  # When user deleted, playlist deleted
+    
     name = models.CharField(max_length=255)
     songs = models.ManyToManyField(Song)
 
