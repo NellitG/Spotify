@@ -34,14 +34,18 @@ def home(request):
     return HttpResponse("<h1>Welcome to the Music Streaming API</h1>")
 
 urlpatterns = [
-    path("", home, name="home"),  # Default homepage
+    path("", home, name="home"),  
     path("admin/", admin.site.urls),
-    path("", include(router.urls)),  # Include router
+    
+
+    path("api/", include(router.urls)),  
+
     path("api/auth/register/", register, name="register"),
     path("api/auth/login/", login, name="login"),
     path("api/auth/logout/", logout, name="logout"),
     path("api/auth/token/", TokenObtainPairView.as_view(), name="token_obtain_pair"),
     path("api/auth/token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
-    path("api/music/", include("music.urls")), 
-] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)  # Add media URL configuration
+
+    path("api/music/", include("music.urls")),  
+] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 
