@@ -6,7 +6,7 @@ from rest_framework import serializers
 from .models import Artist, Song, Playlist
 from .serializers import ArtistSerializer, SongSerializer, PlaylistSerializer
 from .youtube_utils import search_youtube
-from .permissions import IsAdmin, IsArtist
+# from .permissions import IsAdmin, IsArtist
 from rest_framework.decorators import api_view, permission_classes
 from oauth2_provider.models import AccessToken
 from rest_framework.response import Response
@@ -56,7 +56,7 @@ def logout(request):
 class SongViewSet(viewsets.ModelViewSet):
     queryset = Song.objects.all()
     serializer_class = SongSerializer
-    permission_classes = [IsAuthenticated, IsArtist]
+    # permission_classes = [IsAuthenticated, IsArtist]
 
     def perform_create(self, serializer):
         """Ensure artist exists before saving song."""
