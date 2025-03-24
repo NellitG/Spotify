@@ -22,6 +22,7 @@ from django.conf import settings
 from django.conf.urls.static import static
 from rest_framework.routers import DefaultRouter
 from music.views import ArtistViewSet, SongViewSet, PlaylistViewSet
+from music.views import register, login, logout
 
 router = DefaultRouter()
 router.register(r"artists", ArtistViewSet, basename="artist")  # Register ArtistViewSet
@@ -36,6 +37,9 @@ urlpatterns = [
     path("", home, name="home"),  # Default homepage
     path("admin/", admin.site.urls),
     path("", include(router.urls)),  # Include router
+    path("api/auth/register/", register, name="register"),
+    path("api/auth/login/", login, name="login"),
+    path("api/auth/logout/", logout, name="logout"),
     path("api/auth/token/", TokenObtainPairView.as_view(), name="token_obtain_pair"),
     path("api/auth/token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
     path("api/music/", include("music.urls")), 
