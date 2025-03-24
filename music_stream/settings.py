@@ -14,6 +14,8 @@ from pathlib import Path
 import os
 import mimetypes
 
+# AUTH_USER_MODEL = 'music.User'
+
 mimetypes.add_type("image/jpeg", ".jfif")
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -49,10 +51,12 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'rest_framework',
     'rest_framework_simplejwt',
+    'rest_framework.authtoken',
     'music',
     'cloudinary',
     'cloudinary_storage',
     'corsheaders',
+    'oauth2_provider',
 ]
 
 CLOUDINARY_STORAGE = {
@@ -66,6 +70,12 @@ DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
+        'rest_framework.authentication.TokenAuthentication',
+        'rest_framework.authentication.SessionAuthentication',
+        'oauth2_provider.contrib.rest_framework.OAuth2Authentication',
+    ),
+    'DEFAULT_PERMISSION_CLASSES': (
+        'rest_framework.permissions.IsAuthenticated',
     ),
 }
 MIDDLEWARE = [
