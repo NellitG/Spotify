@@ -59,6 +59,13 @@ class SongViewSet(viewsets.ModelViewSet):
     # permission_classes = [IsAuthenticated, IsArtist]
 
     def perform_create(self, serializer):
+        print(self.request.data)
+
+        artist_name = self.request.data.get("artist_name")
+        if not artist_name:
+            raise serializers.ValidationError({"artist_name": "Artist name is required"})
+        
+
         """Ensure artist exists before saving song."""
         song_data = serializer.validated_data
         artist_name = song_data.pop("artist_name")
@@ -70,6 +77,7 @@ class SongViewSet(viewsets.ModelViewSet):
         artist, _ = Artist.objects.get_or_create(name=artist_name)
 
         # Search for a YouTube link
+        song_data = serializer.validated_data
         song_name = f"{song_data['title']} by {artist.name}"
         youtube_link = search_youtube(song_name)
 
