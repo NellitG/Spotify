@@ -56,9 +56,8 @@ class Song(models.Model):
 
 class Playlist(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)  # When user deleted, playlist deleted
-    
     name = models.CharField(max_length=255)
-    songs = models.ManyToManyField(Song)
+    songs = models.ManyToManyField("Song", related_name = "playlists")
 
     def __str__(self):
         return f"{self.name} ({self.user.username})"
