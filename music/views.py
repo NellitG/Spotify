@@ -1,26 +1,23 @@
 from django.shortcuts import render
 from django.http import HttpResponse
-from rest_framework import generics, viewsets
-from rest_framework.permissions import IsAuthenticated
-from rest_framework import serializers
-from .models import Artist, Song, Playlist
-from .serializers import ArtistSerializer, SongSerializer, PlaylistSerializer
-from .youtube_utils import search_youtube
-# from .permissions import IsAdmin, IsArtist
-from rest_framework.decorators import api_view, permission_classes
-from oauth2_provider.models import AccessToken
+from rest_framework import viewsets, status
+from rest_framework.permissions import IsAuthenticated, AllowAny, IsAuthenticatedOrReadOnly
+from rest_framework.decorators import api_view, permission_classes, action
 from rest_framework.response import Response
-from rest_framework import status
 from rest_framework.authtoken.models import Token
 from django.contrib.auth import authenticate
-from .serializers import UserSerializer
-
+from django.db import transaction
+from .models import Artist, Song, Playlist
+from .serializers import ArtistSerializer, SongSerializer, PlaylistSerializer, UserSerializer
+from .youtube_utils import search_youtube
 
 # Home View
 def home(request):
     return HttpResponse("<h1>Welcome to the Music Streaming API</h1>")
 
+# Authentication Views
 @api_view(['POST'])
+@permission_classes([AllowAny])
 def register(request):
     serializer = UserSerializer(data=request.data)
     if serializer.is_valid():
@@ -30,6 +27,7 @@ def register(request):
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 @api_view(['POST'])
+@permission_classes([AllowAny])
 def login(request):
     username = request.data.get('username')
     password = request.data.get('password')
@@ -42,117 +40,95 @@ def login(request):
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def logout(request):
-    """Logout user by deleting their authentication token."""
     try:
-        # Ensure the user has an authentication token
-        if hasattr(request.user, "auth_token"):
-            request.user.auth_token.delete()
-            return Response({"message": "Successfully logged out"}, status=200)
-        return Response({"error": "User has no auth_token."}, status=400)
+        request.user.auth_token.delete()
+        return Response({"message": "Successfully logged out"}, status=status.HTTP_200_OK)
     except Exception as e:
-        return Response({"error": str(e)}, status=500)
-    
-# Song ViewSet (for CRUD operations)
-class SongViewSet(viewsets.ModelViewSet):
-    queryset = Song.objects.all()
-    serializer_class = SongSerializer
-    # permission_classes = [IsAuthenticated, IsArtist]
+        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-    def perform_create(self, serializer):
-        print(self.request.data)
-
-        artist_name = self.request.data.get("artist_name")
-        if not artist_name:
-            raise serializers.ValidationError({"artist_name": "Artist name is required"})
-        
-
-        """Ensure artist exists before saving song."""
-        song_data = serializer.validated_data
-        artist_name = song_data.pop("artist_name")
-
-        if not artist_name:
-            raise serializers.ValidationError({"artist_name": "Artist name is required"})
-
-        # Get or create the artist instance
-        artist, _ = Artist.objects.get_or_create(name=artist_name)
-
-        # Search for a YouTube link
-        song_data = serializer.validated_data
-        song_name = f"{song_data['title']} by {artist.name}"
-        youtube_link = search_youtube(song_name)
-
-        # Save song with artist and valid YouTube link
-        serializer.save(artist=artist, youtube_url=youtube_link)
-
-    def perform_update(self, serializer):
-        """Ensure artist exists before updating song."""
-        song_data = serializer.validated_data
-        artist_name = song_data.pop("artist")
-
-        # Get or create the artist instance
-        artist, _ = Artist.objects.get_or_create(name=artist_name)
-
-        # Update the song with the correct artist instance
-        serializer.save(artist=artist)
-
-
-# Artist ViewSet (for CRUD operations)
+# ViewSets
 class ArtistViewSet(viewsets.ModelViewSet):
-    queryset = Artist.objects.all()
+    queryset = Artist.objects.all().order_by('name')
     serializer_class = ArtistSerializer
+    permission_classes = [IsAuthenticatedOrReadOnly]
+    lookup_field = 'name'
+    search_fields = ['name']
 
+    @action(detail=True, methods=['GET'])
+    def songs(self, request, name=None):
+        artist = self.get_object()
+        songs = artist.song_set.all()
+        serializer = SongSerializer(songs, many=True)
+        return Response(serializer.data)
 
-# Playlist ViewSet (for CRUD operations)
-class PlaylistViewSet(viewsets.ModelViewSet):
-    queryset = Playlist.objects.all()
-    serializer_class = PlaylistSerializer
-    permission_classes = [IsAuthenticated]
-
-    def get_queryset(self):
-        """Ensure users can only see their own playlists."""
-        return Playlist.objects.filter(user=self.request.user)
-
-    def perform_create(self, serializer):
-        """Ensure a playlist is created only for the logged-in user."""
-        serializer.save(user=self.request.user)
-
-
-# Artist List API View
-class ArtistList(generics.ListCreateAPIView):
-    queryset = Artist.objects.all()
-    serializer_class = ArtistSerializer
-
-
-# Song List API View
-class SongList(generics.ListCreateAPIView):
-    queryset = Song.objects.all()
+class SongViewSet(viewsets.ModelViewSet):
+    queryset = Song.objects.all().select_related('artist')
     serializer_class = SongSerializer
+    permission_classes = [IsAuthenticatedOrReadOnly]
+    filterset_fields = ['artist__name', 'title']
+    search_fields = ['title', 'artist__name']
 
+    def get_permissions(self):
+        if self.action in ['create', 'update', 'partial_update', 'destroy']:
+            return [IsAuthenticated()]
+        return [AllowAny()]
+
+    @transaction.atomic
     def perform_create(self, serializer):
-        """Ensure artist exists before saving song."""
-        song_data = serializer.validated_data
-        artist_name = song_data.pop("artist_name")
+        """Handle YouTube URL search during creation."""
+        validated_data = serializer.validated_data
+        artist = validated_data.get('artist')
+        title = validated_data.get('title')
 
-        # Get or create the artist instance
-        artist, _ = Artist.objects.get_or_create(name=artist_name)
+        if artist and title:
+            search_query = f"{title} by {artist.name}"
+            youtube_url = search_youtube(search_query)
+            serializer.save(youtube_url=youtube_url)
+        else:
+            serializer.save()
 
-        # Search for a YouTube link
-        song_name = f"{song_data['title']} by {artist.name}"
-        youtube_link = search_youtube(song_name)
+    @action(detail=False, methods=['GET'])
+    def recent(self, request):
+        recent_songs = Song.objects.order_by('-uploaded_at')[:10]
+        serializer = self.get_serializer(recent_songs, many=True)
+        return Response(serializer.data)
 
-        # Save song with artist and valid YouTube link
-        serializer.save(artist=artist, youtube_url=youtube_link)
-
-
-# Playlist List API View
-class PlaylistList(generics.ListCreateAPIView):
+class PlaylistViewSet(viewsets.ModelViewSet):
     serializer_class = PlaylistSerializer
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        """Ensure users can only see their own playlists."""
         return Playlist.objects.filter(user=self.request.user)
 
     def perform_create(self, serializer):
-        """Ensure a playlist is created only for the logged-in user."""
         serializer.save(user=self.request.user)
+
+    @action(detail=True, methods=['POST'])
+    def add_song(self, request, pk=None):
+        playlist = self.get_object()
+        song_id = request.data.get('song_id')
+
+        if not song_id:
+            return Response({"error": "song_id is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            song = Song.objects.get(pk=song_id)
+            playlist.songs.add(song)
+            return Response({"status": "song added"}, status=status.HTTP_200_OK)
+        except Song.DoesNotExist:
+            return Response({"error": "Song not found"}, status=status.HTTP_404_NOT_FOUND)
+
+    @action(detail=True, methods=['POST'])
+    def remove_song(self, request, pk=None):
+        playlist = self.get_object()
+        song_id = request.data.get('song_id')
+
+        if not song_id:
+            return Response({"error": "song_id is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            song = Song.objects.get(pk=song_id)
+            playlist.songs.remove(song)
+            return Response({"status": "song removed"}, status=status.HTTP_200_OK)
+        except Song.DoesNotExist:
+            return Response({"error": "Song not found"}, status=status.HTTP_404_NOT_FOUND)
