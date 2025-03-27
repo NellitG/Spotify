@@ -45,6 +45,7 @@ ALLOWED_HOSTS = [
 # Application definition
 
 INSTALLED_APPS = [
+    'jazzmin',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -60,6 +61,22 @@ INSTALLED_APPS = [
     'corsheaders',
     'oauth2_provider',
 ]
+
+JAZZMIN_SETTINGS = {
+    "site_title": "My Music Streaming Admin",
+    "site_header": "Music Admin",
+    "site_brand": "MusicStream",
+    "welcome_sign": "Welcome to the Music Admin Panel",
+    "show_sidebar": True,
+    "navigation_expanded": True,
+    "icons": {
+        "auth.User": "fas fa-user",
+        "music.Artist": "fas fa-music",
+        "music.Song": "fas fa-headphones",
+        "music.Playlist": "fas fa-list-alt",
+    },
+}
+
 
 CLOUDINARY_STORAGE = {
     'CLOUD_NAME': '',
