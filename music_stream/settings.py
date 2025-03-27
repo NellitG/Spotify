@@ -37,7 +37,9 @@ SECRET_KEY = 'django-insecure-x0wro2&3#1oqcf41#!p7eloo4fmrdo=a!1v9xx*5127*8fw+_g
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = [
+    
+]
 
 
 # Application definition
@@ -76,6 +78,7 @@ REST_FRAMEWORK = {
     ),
     'DEFAULT_PERMISSION_CLASSES': (
         'rest_framework.permissions.IsAuthenticated',
+        'rest_framework.permissions.IsAuthenticatedOrReadOnly',
     ),
 }
 MIDDLEWARE = [
