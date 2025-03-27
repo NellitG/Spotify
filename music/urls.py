@@ -1,8 +1,24 @@
-from django.urls import path
-from .views import ArtistList, SongList, PlaylistList
+from django.urls import path, include
+from rest_framework.routers import DefaultRouter
+from .views import (
+    ArtistViewSet,
+    SongViewSet,
+    PlaylistViewSet,
+    register,
+    login,
+    logout,
+    home
+)
+
+router = DefaultRouter()
+router.register(r'artists', ArtistViewSet, basename='artist')
+router.register(r'songs', SongViewSet, basename='song')
+router.register(r'playlists', PlaylistViewSet, basename='playlist')
 
 urlpatterns = [
-    path("artists/", ArtistList.as_view(), name="artist-list"),
-    path("songs/", SongList.as_view(), name="song-list"),
-    path("playlists/", PlaylistList.as_view(), name="playlist-list"),
+    path('', home, name='home'),
+    path('register/', register, name='register'),
+    path('login/', login, name='login'),
+    path('logout/', logout, name='logout'),
+    path('', include(router.urls)),
 ]
