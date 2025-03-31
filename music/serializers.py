@@ -1,7 +1,9 @@
 import re
 from rest_framework import serializers
-from django.contrib.auth.models import User
+from django.contrib.auth import get_user_model
 from .models import Artist, Song, Playlist
+
+User = get_user_model()
 
 class UserSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True)
@@ -49,7 +51,7 @@ class SongSerializer(serializers.ModelSerializer):
 
     def validate_youtube_url(self, value):
         """Validate YouTube URL format if provided."""
-        if value:  # Only validate if URL is provided
+        if value:
             youtube_pattern = re.compile(
                 r'^(https?:\/\/)?(www\.)?(youtube\.com\/(watch\?v=|embed\/)|youtu\.be\/)([\w-]+)'
             )
@@ -61,8 +63,6 @@ class SongSerializer(serializers.ModelSerializer):
         """Create song with artist from artist_name."""
         artist_name = validated_data.pop('artist_name')
         artist, _ = Artist.objects.get_or_create(name=artist_name)
-        
-        # Create song with the artist
         song = Song.objects.create(artist=artist, **validated_data)
         return song
 
@@ -73,7 +73,6 @@ class SongSerializer(serializers.ModelSerializer):
             artist, _ = Artist.objects.get_or_create(name=artist_name)
             instance.artist = artist
         
-        # Update other fields
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
         
@@ -87,7 +86,14 @@ class SongSerializer(serializers.ModelSerializer):
         return representation
 
 class PlaylistSerializer(serializers.ModelSerializer):
-    user = serializers.ReadOnlyField(source="user.username")
+    user_id = serializers.PrimaryKeyRelatedField(
+        queryset=User.objects.all(),
+        source='user',
+        required=False,
+        write_only=True,
+        help_text="ID of the user who owns the playlist (optional, defaults to current user)"
+    )
+    username = serializers.CharField(source='user.username', read_only=True)
     songs = serializers.PrimaryKeyRelatedField(
         queryset=Song.objects.all(), 
         many=True,
@@ -96,14 +102,41 @@ class PlaylistSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Playlist
-        fields = ['id', 'user', 'name', 'songs', 'created_at']
-        read_only_fields = ['id', 'user', 'created_at']
+        fields = ['id', 'user_id', 'username', 'name', 'songs', 'created_at']
+        read_only_fields = ['id', 'username', 'created_at']
+
+    def create(self, validated_data):
+        """Create playlist with automatic user assignment if not provided."""
+        if 'user' not in validated_data:
+            validated_data['user'] = self.context['request'].user
+        
+        songs = validated_data.pop('songs', [])
+        playlist = Playlist.objects.create(**validated_data)
+        playlist.songs.set(songs)
+        return playlist
+
+    def update(self, instance, validated_data):
+        """Handle playlist updates including songs."""
+        songs = validated_data.pop('songs', None)
+        
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        
+        if songs is not None:
+            instance.songs.set(songs)
+        
+        instance.save()
+        return instance
 
     def to_representation(self, instance):
-        """Include full song objects instead of just IDs."""
+        """Include full song objects and user info in the output."""
         representation = super().to_representation(instance)
         representation['songs'] = SongSerializer(
             instance.songs.all(), 
             many=True
         ).data
+        representation['user'] = {
+            'id': instance.user.id,
+            'username': instance.user.username
+        }
         return representation
